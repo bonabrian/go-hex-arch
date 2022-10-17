@@ -1,0 +1,73 @@
+version: '3.8'
+
+volumes:
+  mysql-data: null
+  redis-data: null
+
+networks:
+  go-hex-arch:
+    driver: bridge
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # [Choice] Go version 1, 1.18, 1.17
+        # Append -bullseye or -buster to pin to an OS version.
+        # Use -bullseye variants on local arm64/Apple Silicon.
+        VARIANT: "1.18"
+        # Options
+        NODE_VERSION: "none"
+    # env_file:
+      # Ensure that the variables in .env match the same variables in devcontainer.json
+      # - .env
+
+    # Security Opt and cap_add allow for C++ based debuggers to work. 
+    # See `runArgs`: https://github.com/Microsoft/vscode-docs/blob/main/docs/remote/devcontainerjson-reference.md
+    #     security_opt:
+    #       - seccomp:unconfined
+    #     cap_add:
+    #       - SYS_PTRACE
+
+    volumes:
+      - ..:/workspace:cached
+
+    # Overrides default command so things don't shut down after the process ends.
+    command: sleep infinity
+
+    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    # network_mode: service:db
+    networks:
+      - go-hex-arch
+    # Uncomment the next line to use a non-root user for all processes.
+    # user: vscode
+
+    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally. 
+    # (Adding the "ports" property to this file will not forward from a Codespace.)
+
+  db:
+    image: mysql:8.0.26
+    command: '--default-authentication-plugin=mysql_native_password'
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_USER=notroot
+      - MYSQL_PASSWORD=secretnotroot
+      - MYSQL_HOST=localhost
+      - MYSQL_ROOT_PASSWORD=secrethexroot
+      - MYSQL_DATABASE=go_hex_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - go-hex-arch
+
+  cache:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/redis.conf
+    networks:
+      - go-hex-arch
